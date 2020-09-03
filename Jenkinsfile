@@ -1,75 +1,49 @@
 #!groovy
 
 pipeline {
-
-  agent any
-
+  agent {
+      label 'qatest'
+  }
   environment {
-    git_commit_message = ''
-    git_commit_diff = ''
-    git_commit_author = ''
-    git_commit_author_name = ''
-    git_commit_author_email = ''
-  }
+    QA_SERVER = 'https://qa.application.com/'
+    CT_SERVER = 'http://ct.application.com/'
 
+  }
   stages {
-
-    // Build
-    stage('Build') {
-      agent {
-        label 'node'
-      }
-      steps {
-        deleteDir()
-        checkout scm
-      }
-    }
-
-    // Static Code Analysis
-    stage('Static Code Analysis') {
-      agent {
-        label 'node'
-      }
-      steps {
-        deleteDir()
-        checkout scm
-        sh "echo 'Run Static Code Analysis'"
-      }
-    }
-
-    // Unit Tests
-    stage('Unit Tests') {
-      agent {
-        label 'node'
-      }
-      steps {
-        deleteDir()
-        checkout scm
-        sh "echo 'Run Unit Tests'"
-      }
-    }
-
-    // Acceptance Tests
-    stage('Acceptance Tests') {
-      agent {
-        label 'node'
-      }
-      steps {
-        deleteDir()
-        checkout scm
-        sh "echo 'Run Acceptance Tests'"
-      }
-    }
-
+	    stage('intialize') {
+	      steps {
+	        sh 'echo "PATH= ${PATH}'
+	      }
+	    }
+    
+	    stage('Run Robot Tests') {
+	      steps {
+		        	sh 'python3 -m rflint --ignore LineTooLong myapp'
+		        	sh 'python3 -m robot.run --NoStatusRC --variable SERVER:${CT_SERVER} --outputdir reports1 myapp/uiTest/testCases/smokeSuite/'
+		        	sh 'python3 -m robot.run --NoStatusRC --variable SERVER:${CT_SERVER} --rerunfailed reports1/output.xml --outputdir reports myapp/uiTest/testCases/smokeSuite/'
+		        	sh 'python3 -m robot.rebot --merge --output reports/output.xml -l reports/log.html -r reports/report.html reports1/output.xml reports/output.xml'
+		        	sh 'exit 0'
+	      		}
+	      post {
+        	always {
+		        script {
+		          step(
+			            [
+			              $class              : 'RobotPublisher',
+			              outputPath          : 'reports',
+			              outputFileName      : '**/output.xml',
+			              reportFileName      : '**/report.html',
+			              logFileName         : '**/log.html',
+			              disableArchiveOutput: false,
+			              passThreshold       : 50,
+			              unstableThreshold   : 40,
+			              otherFiles          : "**/*.png,**/*.jpg",
+			            ]
+		          	)
+		        }
+	  		}		
+	    }
+	}    
   }
-  post {
-    success {
-      sh "echo 'Send mail on success'"
-      // mail to:"me@example.com", subject:"SUCCESS: ${currentBuild.fullDisplayName}", body: "Yay, we passed."
-    }
-    failure {
-      sh "echo 'Send mail on failure'"
-      // mail to:"me@example.com", subject:"FAILURE: ${currentBuild.fullDisplayName}", body: "Boo, we failed."
-    }
-  }
+  
 }
