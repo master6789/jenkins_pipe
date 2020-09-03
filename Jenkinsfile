@@ -2,8 +2,7 @@
 
 pipeline {
   agent any
-  }
-  environment {
+    environment {
     QA_SERVER = 'https://qa.application.com/'
     CT_SERVER = 'http://ct.application.com/'
 
